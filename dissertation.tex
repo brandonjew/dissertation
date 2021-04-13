@@ -1,0 +1,128 @@
+
+\documentclass [PhD] {uclathes}
+
+% \input {mymacros}                         % personal LaTeX macros
+\usepackage[usenames,dvipsnames]{xcolor}
+\definecolor{linkcolor}{RGB}{0,0,102}
+\usepackage{hyperref} 
+\hypersetup{
+	pdfstartview = {XYZ},
+	colorlinks,
+	allcolors = linkcolor,
+	bookmarksopen,
+	bookmarksnumbered
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Usually things live in separate flies.
+%
+% \input {prelim}                           % preliminary page info
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                      %
+%                          PRELIMINARY PAGES                           %
+%                                                                      %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title          {Identifying genomic regulatory patterns \\
+                 underlying complex phenotypes from heterogeneous data}
+\author         {Brandon Jew}
+\department     {Bioinformatics}
+% Note:  degreeyear should be optional, but as of  5-Feb-96
+% it seems required or you get a year of ``2''.   -johnh
+\degreeyear     {2021}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chair          {Eran Halperin}
+\chair          {Jae Hoon Sul}
+\member         {Päivi Pajukanta}
+\member         {Sriram Sankararaman}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\dedication     {\textsl{To my wife, \\
+                my constant source of happiness \\
+                and inspiration to always move forward. \\}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\acknowledgments {
+I would like to thank my advisors, Eran Halperin and Jae Hoon Sul. As someone who came from biochemistry, I am extremely grateful to have both as amazing mentors through my growth as a computational researcher. I have known Jae Hoon since 2016, when I transitioned from biochemistry to bioinformatics research as an undergraduate. He has always given me the guidance I’ve needed to be a productive researcher while maintaining work-life balance, something I am grateful to have had as a graduate student. I am extremely fortunate to have Eran as an advisor, who set the bar high from the beginning. I’ve kept this in mind throughout my PhD and I attribute much of my success to this confidence. 
+
+I would also like to thank Eleazar Eskin, who roped me into bioinformatics in the first place. He’s given me endless opportunities to grow as a researcher, by introducing me to amazing networking opportunities, funding our crazy outreach programs, and pushing a bunch of COVID-19 projects forward. I’d also like to take this opportunity to thank Lana Martin and Robert Smith, who helped me immensely during their time in Eleazar’s lab. Lana single-handedly got me full funding for my entire PhD and Robert was my go-to guy for all of my projects outside of research. Sim-Lin and Margaret, thank you for handling all my weird funding stuff too. I loved talking to you guys!
+
+I’d like to thank more professors at UCLA who have been amazing sources of collaboration and mentorship. Sriram Sankararaman, a constant inspiration and guide for improving my skills in machine learning and mathematics. Paivi Pajukanta, an amazing scientist who inspired much of our work through applications in cardiovascular disorders. Noah Zaitlen, who guided me through one of my favorite projects and provided amazing support as I neared graduation.
+
+My lab mates have been amazing. In Eran’s lab, Elior, Liat, Mike Thompson, Johnson Chen, Ulzee An, Brian Hill, Nadav Racocz, Jeff Chiang (and our clump buddies in Sriram’s lab, Alec, Chris, Ruthie, Arun, Ariel, Ali). I loved talking too much during work hours and collaborating on projects with you all and going to every lunch talk and happy hour we could find. Also, Marcus from Paivi’s lab, thanks for the collaboration, it was really fun giving back-to-back talks in Houston! In Jae Hoon’s lab, Albert, Sarah, Lingyu, it was great having you to collaborate and hang out with and have cool photoshoots to make commemorative mugs. To the rest of my Bioinformatics cohort as well, I loved all the get-togethers, in-person and virtually. 
+
+I’d like to thank my family. It makes me so happy that you guys are proud of me and the work I do. It keeps me confident! Lastly, I thank my wife, the amazing Dr. Maegan Lu. Over the past 8 years, we’ve grown so much together. Thank you for listening to me every day and night and keeping me motivated to keep up with you. 
+
+You all made the last four years absolutely amazing!
+
+
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\vitaitem   {2017-2021}
+                {PhD, Bioinformatics, University of California, Los Angeles, CA, USA}
+\vitaitem   {2013--2017}
+                {BS, Biochemistry (minor in Bioinformatics), University of California, Los Angeles, CA, USA}
+\vitaitem   {2014-2016}
+                {Research Assistant, Loo Laboratory, University of California, Los Angeles, CA, USA}
+\vitaitem   {2014}
+                {Research Intern, Evans Laboratory, Salk Institute for Biological Studies}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            
+  \publication{* Denotes equal contribution}
+  \publication {Gorla A, \textbf{Jew B}, Zhang L, Sul JH. xGAP: A python based efficient, modular, extensible and fault tolerant genomic analysis pipeline for variant discovery. \textsl{Bioinformatics.} 2021.}
+  \publication {Goodman-Meza D, Rudas A, Chiang JN, Adamson PC, Ebinger J, Sun N, Botting P, Fulcher JA, Saab FG, Brook R, Eskin E, An U, Kordi M, \textbf{Jew B}, Balliu B, Chen Z, Hill BL, Rahmani E, Halperin E, Manuel V. A machine learning algorithm to increase COVID-19 inpatient diagnostic capacity. \textsl{PLoS One.} 2020.}
+  \publication {Zong Miao, Marcus Alvarez, Arthur Ko, Yash Bhagat, Elior Rahmani, \textbf{Brandon Jew}, Sini Heinonen, Karen L Mohlke, Markku Laakso, Kirsi H. Pietiläinen, Eran Halperin, Päivi Pajukanta. The causal effect of obesity on prediabetes and insulin resistance reveals the important role of adipose tissue in insulin resistance. \textsl{PLoS Genetics.} 2020.}
+  \publication {Marcus Alvarez*, Elior Rahmani*, \textbf{Brandon Jew}, Kristina M Garske, Zong Miao, Jihane N Benhammou, Chun Jimmie Ye, Joseph R Pisegna, Kirsi H Pietiläinen, Eran Halperin, Päivi Pajukanta. Enhancing droplet-based single-nucleus RNA-seq resolution using the semi-supervised machine learning classifier DIEM. \textsl{Scientific Reports}. 2020.}
+  \publication {\textbf{Brandon Jew}*, Marcus Alvarez*, Elior Rahmani, Zong Miao, Arthur Ko, Kristina M. Garske, Jae Hoon Sul, Kirsi H. Pietiläinen, Päivi Pajukanta, Eran Halperin. Accurate estimation of cell composition in bulk expression through robust integration of single-cell information. \textsl{Nature Communications.} 2020.}
+    \presentation{\textbf{Brandon Jew}, Marcus Alvarez, Elior Rahmani, Zong Miao, Arthur Ko, Kristina M. Garske, Jae Hoon Sul, Kirsi H. Pietiläinen, Päivi Pajukanta, Eran Halperin. Accurate estimation of cell composition in bulk expression through robust integration of single-cell information. Platform presented at the 69th Annual Meeting of the American Society of Human Genetics, October 19, 2019, Houston, Texas.}
+  \publication {Jennifer Zou, Farhad Hormozdiari, \textbf{Brandon Jew}, Stephane E Castel, Tuuli Lappalainen, Jason Ernst, Jae Hoon Sul, Eleazar Eskin. Leveraging allelic imbalance to refine fine-mapping for eQTL studies. \textsl{PLoS Genetics.} 2019.}
+  \publication {Brian L Hill, Robert Brown, Eilon Gabel, Nadav Rakocz, Christine Lee, Maxime Cannesson, Pierre Baldi, Loes Olde Loohuis, Ruth Johnson, \textbf{Brandon Jew}, Uri Maoz, Aman Mahajan, Sriram Sankararaman, Ira Hofer, Eran Halperin. An automated machine learning-based model predicts postoperative mortality using readily-extractable preoperative electronic health record data. \textsl{British Journal of Anaesthesia.} 2019.}
+  \publication {Jiajin Li, \textbf{Brandon Jew}, Lingyu Zhan, Sungoo Hwang, Giovanni Coppola, Nelson B Freimer, Jae Hoon Sul. ForestQC: quality control on genetic variants from next-generation sequencing data using random forest. \textsl{PLoS Computational Biology.} 2019.}
+  \publication {\textbf{Brandon Jew}, Jae Hoon Sul. Variant calling and quality control of large-scale human genome sequencing data. \textsl{Emerging Topics in Life Sciences.} 2019.}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\abstract       {Here's my stuff}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+\begin {document}
+\makeintropages
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Ordinarily each chapter (at least) is in a separate file.
+%
+%\input {chapter1}                         % Chapter 1 of dissertation
+%\input {chapter2}                         % Chapter 2
+%\input {chapter3}                         % etc.
+%\input {chapter4}
+%\input {chapter5}
+%\input {chapter6}
+%\input {chapter7}
+%\input {chapter8}
+
+\input{chapter1}
+
+\input{chapter2}
+
+\input{chapter3}
+
+\input{chapter4}
+%\bibliography {bib/network,bib/naming}    % bibliography references
+%\bibliographystyle {thesis}
+
+\end {document}
+
