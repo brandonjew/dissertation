@@ -1,5 +1,369 @@
 \chapter{An efficient linear mixed model framework for meta-analytic association studies across multiple contexts}
+
 \section{Background}
+
+    Over the last decade, the scale of genomic datasets has steadily increased. These datasets have grown to the size of hundreds of thousands of individuals \cite{Bycroft2018} with millions soon to come \cite{allofus}. Similarly, datasets for transcriptomics and epigenomics are growing to thousands of samples \cite{gtex, GTEx_Consortium2020-xx, ewas}. These studies provide valuable insight into the relationship between our genome and complex phenotypes \cite{gwas}. 
+    
+    Identifying these associations requires statistical models that can account for biases in study design that can negatively influence results through false positives or decreased power. Linear mixed models (LMMs) have been a popular choice for controlling these biases in genomic studies, utilizing variance components to account for issues such as population stratification \cite{Kang}. These models can also be used to analyze studies with repeated measurements from individuals, such as replicates or measurements across different contexts. Meta-Tissue  \cite{Sul} is a method that applies this model in the context of identifying expression quantitative trait loci (eQTLs) across multiple tissues. In this framework, gene expression is measured in several tissues from the same individuals and the LMM is utilized to test the association between these values and genotypes. A meta-analytic approach is used to combined effects across multiple tissues to increase the power of detecting eQTLs. This approach has also been applied to increase power in genome-wide association studies (GWAS) by testing the association between genotypes and multiple related phenotypes \cite{Joo}. 
+    
+    However, these approaches are computationally intensive. Existing approaches for fitting these models are cubic in time complexity with respect to the number of samples across all contexts \cite{Kang, Zhou}. Here, we present an ultra-fast LMM framework specifically for multiple-context studies. Our method, mcLMM, is linear in complexity with respect to the number of individuals and allows for statistical tests in a manner of hours rather than days or years with existing approaches. To illustrate the computational efficiency of mcLMM, we compare the runtime and memory usage of our method with EMMA and GEMMA \cite{Kang, Zhou}, two popular approaches for fitting these models. We further apply mcLMM to identify a large number of eQTLs in the Genotype-Tissue Expression (GTEx) dataset \cite{GTEx_Consortium2020-xx} and compare our results from METASOFT \cite{Metasoft}, which performs the meta-analysis of the mcLMM output, to a recent meta-analytic approach known as mash \cite{Urbut2019}. Finally, to demonstrate the practicality of mcLMM on modern datasets, we perform a multiple-phenotype GWAS combining over a million observations sampled from hundreds of thousands of individuals in the UK Biobank \cite{Bycroft2018} within hours.
+
 \section{Methods}
+
+   \subsection{Linear Mixed Model}
+        For multi-context experiments with $n$ individuals, $t$ contexts, and $c$ covariates, we fit the following linear mixed model
+        
+        \begin{equation}
+            \mathbf{y} = X\beta + \mathbf{u} + \mathbf{e}
+        \end{equation}
+        
+        \noindent where $\mathbf{u} \sim N(0,\sigma_g^2 K)$, $\mathbf{e} \sim N(0,\sigma_e^2 I)$,  $\mathbf{y} \in R^{nt}$ is a vectorized representation of the responses, $X \in R^{nt \times tc}$ is the matrix of covariates,
+        $\beta \in R^{tc}$ is the vector of estimated coefficients, $K \in R^{nt \times nt}$ is a binary matrix where $K_{i,j} = 1$ 
+        indicates that sample $i$ and sample $j$ in $Y$ come from the same individual, and $I \in R^{nt \times nt}$ is an identity matrix.
+        $X$ is structured such that both an intercept and the covariate effects are fit within each context. For sake of simplicity, dimensions
+        of $nt$ assume that there is no missing data; however, this is not a requirement for the model.
+        
+        The full and restricted log-likelihood functions for this model are
+        \begin{equation}
+            l_F(\mathbf{y}; \beta, \sigma_g, \delta) = \frac{1}{2}\left[-N\log{(2\pi\sigma^2_g)} - \log(|H|) - \frac{1}{\sigma^2_g}(\mathbf{y}-X\beta)^T H^{-1} (\mathbf{y}-X\beta)\right]
+        \end{equation}
+        \begin{equation}
+            l_R(\mathbf{y}; \beta, \sigma_g, \delta) = l_F(\mathbf{y}; \beta, \sigma_g, \sigma_e) + \frac{1}{2}\left[tc\log(2\pi\sigma^2_g) + \log{(|X^TX|)} - \log{(|X^TH^{-1}X|)}\right]
+        \end{equation}
+        where $N$ is the total number of measurements made across the individuals and contexts, $\delta = \frac{\sigma^2_e}{\sigma^2_g}$, and $H = K + \delta I$  \cite{Welham}. These likelihood functions are maximized with the generalized least squares estimator $\hat{\beta} = (X^TH^{-1}X)^{-1}X^TH^{-1}\mathbf{y}$ and $\hat{\sigma^2_g} = \frac{R}{N}$ in the full log-likelihood and $\hat{\sigma^2_g} = \frac{R}{N-tc}$ in the restricted log-likelihood, where $R = (\mathbf{y}-X\hat{\beta})^TH^{-1}(\mathbf{y}-X\hat{\beta})$.  Our goal is to maximize these likelihood functions to estimate the optimal $\hat{\delta}$.
+    
+    \subsection{Likelihood refactoring in the general case}
+        The EMMA algorithm optimizes these likelihoods for $\delta$ by refactoring them in terms of constants calculated from eigendecompositions of $H$ and $SHS$, where $S = I - X(X^TX)^{-1}X^T$, that allow linear complexity optimization iterations with respect to the number of individuals  \cite{Kang}. The GEMMA algorithm further increases efficiency by replacing the $SHS$ eigendecomposition with a matrix-vector multiplication \cite{Zhou}. Both approaches require the eigendecomposition of at least 1 $N$ by $N$ matrix which is typically cubic in complexity. Here, we show that our specific definition of $K$ as a binary indicator matrix allows us to refactor these likelihood functions without any eigendecomposition steps. It should be noted that EMMA and GEMMA can fit this model for any positive semidefinite K, while mcLMM is restricted to the definition described above. 
+        
+        First, note that $H = K + \delta I$ is a block diagonal matrix (as exemplified in Equation 5). Specifically, each block corresponds to an individual $i$ with $t_i$ contexts measured and is equal to $[\mathbf{1}_{t_i} + \delta I_{t_i}] \in R^{t_i \times t_i}$, where $\mathbf{1}_{t_i}$ is a $t_i$ by $t_i$ matrix composed entirely of 1. These properties of $H$ make its eigendecomposition and inverse directly known.
+        
+        The eigenvalues of a block diagonal matrix are equal to the union of the eigenvalues of each block. Moreover, the eigenvalues of $[\mathbf{1}_{t_i} + \delta I_{t_i}]$ are $t_i + \delta$ with multiplicity 1 and $\delta$ with multiplicity $t_i - 1$. Therefore, $H$ has eigenvalues $\delta$ with multiplicity $N-n$ and $t_i + \delta$ for each $t_i$. This provides our first refactoring
+        
+        \begin{equation}
+            \log{(|H|)} = (N-n)\log{(\delta)} + \sum_{i=1}^n \log{(t_i + \delta)}
+        \end{equation}
+        
+        The inverse of a block diagonal matrix can also be computed by inverting each block individually. Moreover, using the Sherman-Morrison formula \cite{ShermanMorrison}, the inverse of $[\mathbf{1}_{t_i} + \delta I_{t_i}]$ is known
+        
+        \begin{equation}
+            (\mathbf{1}_{t_i} + \delta I_{t_i})^{-1} =  -\frac{1}{t+\delta}\mathbf{1}_{t_i} + \frac{1}{\delta} I_{t_i}
+        \end{equation}
+        
+        \noindent Given each entry of $H^{-1}$, we can show algebraically that
+        
+        \begin{equation}
+            X^T H^{-1} X = \frac{1}{\delta}(E - D)
+        \end{equation}
+        \begin{equation}
+            E_{i,j} = 
+            \begin{cases} 
+                \sum\limits_{\text{ind} \in f(i)} x_{\text{ind},g(i)}x_{\text{ind},g(j)}&\mbox{if } f(i) = f(j) \\
+                0 & \mbox{if } f(i) \neq f(j)
+            \end{cases}
+        \end{equation}
+        \begin{equation}
+            D_{i,j} = \sum\limits_{g \in \text{groups}} \frac{1}{t_g + \delta} \sum\limits_{\text{ind} \in f(i),f(j),g}x_{\text{ind},g(i)}x_{\text{ind},g(j)}
+        \end{equation}
+        
+        \noindent where $f(i) = i \% t$ (modulo operator) provides the context of a given 0-indexed column of X, $g(i) = i // t$ (integer division) provides the covariate of a given index. A group $g$ defines the set of individuals that share the same number of measured contexts $t_g$. The expression ``$\text{ind} \in f(i),f(j),g$" indicates the set of all individuals that have $t_g$ measured contexts that include context $i$ and $j$. 
+        
+        Note that with all values independent of $\delta$ pre-computed, specifically the sum of covariate interactions within the sets of individuals indicated above, $E$ is constant with respect to $\delta$ and each entry of the symmetric matrix $D$ can be calculated in linear time with respect to the number of groups, which is less than or equal to the number of contexts $t$. For a given $\delta$, we can compute $X^TH^{-1}X$ in $O(t(tc)^2)$ time complexity. Both the restricted and full log-likelihoods require the calculation of $(X^TH^{-1}X)^{-1}$. The restricted log-likelihood requires the additional calculation of $\log{(|X^TH^{-1}X|)}$. To calculate both of these terms, we perform a Cholesky decomposition of $X^TH^{-1}X = LL^*$, where $^*$ indicates the conjugate transpose. Given this decomposition, we can compute 
+        
+        \begin{equation}
+            \log{(|X^TH^{-1}X|)} = \sum_{i=1}^{tc} L_{i,i}^2
+        \end{equation}
+        \begin{equation}
+            (X^TH^{-1}X)^{-1} = (L^*)^{-1}L^{-1}
+        \end{equation}
+        
+        \noindent These operations can be done in $O((tc)^3)$ time complexity. 
+        
+        Let $P(X)$ denote a projection matrix and $M(X) = (I-P(X))$. Note that both $P(X)$ and $M(X)$ are idempotent. The term remaining term in the likelihood functions, $R$, can be reformulated as follows
+        \begin{align}
+        \begin{split}
+            \mathbf{y}- X\hat{\beta} & = \mathbf{y} - X(X^TH^{-1}X)^{-1}X^TH^{-1}\mathbf{y} \\
+                                     & = (I - X(X^TH^{-1}X)^{-1}X^TH^{-1})\mathbf{y} \\
+                                     & = (I - P(X))\mathbf{y} \\
+                                     & = M(X)\mathbf{y}
+        \end{split}
+        \end{align}
+        
+        \begin{align}
+        \begin{split}
+            M(X)^TH^{-1} & = (I - X(X^TH^{-1}X)^{-1}X^TH^{-1})^T H^{-1} \\
+                         & = (I - H^{-1}X(X^TH^{-1}X)^{-1}X^T)H^{-1} \\
+                         & = H^{-1} - H^{-1}X(X^TH^{-1}X)^{-1}X^TH^{-1} \\
+                         & = H^{-1}(I - X(X^TH^{-1}X)^{-1}X^TH^{-1}) \\
+                         & = H^{-1}M(X)
+        \end{split}
+        \end{align}
+    
+        \begin{align}
+        \begin{split}
+            R & = (\mathbf{y}-X\hat{\beta})^TH^{-1}(\mathbf{y}-X\hat{\beta})    \\
+              & = \mathbf{y}^TM(X)^TH^{-1}M(X)\mathbf{y} \\
+              & = \mathbf{y}^TH^{-1}M(X)M(X)\mathbf{y} \\
+              & = \mathbf{y}^TH^{-1}M(X)\mathbf{y} \\
+              & = (\mathbf{y}^TH^{-1}\mathbf{y}) - (\mathbf{y}^TH^{-1}X(X^TH^{-1}X)^{-1}X^TH^{-1}\mathbf{y}) \\
+              & = a - \mathbf{b}^T(X^TH^{-1}X)^{-1}\mathbf{b} \\
+              & = a - \mathbf{b}^T(L^*)^{-1}L^{-1}\mathbf{b}
+        \end{split}
+        \end{align}
+        The scalar $a$ and vector $\mathbf{b}$ are a function of $\delta$ and can be algebraically formulated as
+        \begin{equation}
+            a = \frac{1}{\delta}\left(\left(\sum_{i=1}^{N}\mathbf{y}_i^2\right) - \left(\sum\limits_{g \in \text{groups}} \frac{1}{t_g + \delta}\sum\limits_{\text{ind} \in g}(\sum\mathbf{y}_{\text{ind}})^2\right)\right)
+        \end{equation}
+        
+        \begin{equation}
+            \mathbf{b}_i = \frac{1}{\delta}\left(\left(\sum\limits_{\text{ind} \in \text{context(i)}} x_{\text{ind},g(i)}\mathbf{y}_{\text{ind},f(i)}\right) - \left(\sum\limits_{g \in \text{groups}} \frac{1}{t_g + \delta}\sum\limits_{\text{ind} \in f(i),g} x_{\text{ind},g(i)}(\sum\mathbf{y}_{\text{ind}}) \right)\right)
+        \end{equation}
+        where $\sum\mathbf{y}_{\text{ind}}$ indicates the sum of responses across all contexts for an individual. With values independent of $\delta$ pre-calculated, $a$ and $\mathbf{b}$ can be calculated in linear time with respect to the number of groups. 
+        
+        We can reformulate the entire likelihood functions as follows
+        
+        \begin{align}
+        \begin{split}
+            l_F(\mathbf{y}; \beta, \sigma_g, \delta) & = \frac{1}{2}\left[-N\log{(2\pi\sigma^2_g)} - \log(|H|) - \frac{1}{\sigma^2_g}(\mathbf{y}-X\beta)^T H^{-1} (\mathbf{y}-X\beta)\right] \\ 
+                                                     & = \frac{1}{2}\left[-N\log{(2\pi\frac{R}{N})} - \log(|H|) - N\right] \\
+                                                     & = \frac{1}{2}\left[-N\log{(2\pi\frac{R}{N})} - \left((N-n)\log{(\delta)} + \sum_{i=1}^n \log{(t_i + \delta)}\right) - N\right] \\
+                                                     %& = \frac{1}{2}\left[-N\log{(2\pi\frac{a - \mathbf{b}^T(L^*)^{-1}L^{-1}\mathbf{b}}{N})} - \left((N-n)\log{(\delta)} +  \sum_{i=1}^n \log{(t_i + \delta)}\right) - N\right] \\
+                                                     & \approx -N\log{(a - \mathbf{b}^T(L^*)^{-1}L^{-1}\mathbf{b})} - \left((N-n)\log{(\delta)} + \sum_{i=1}^n \log{(t_i + \delta)}\right) \label{lf_iter} 
+        \end{split}
+        \end{align}
+        
+        \begin{align}
+        \begin{split}
+            l_R(\mathbf{y}; \beta, \sigma_g, \delta) & = l_F(\mathbf{y}; \beta, \sigma_g, \sigma_e) + \frac{1}{2}\left[tc\log(2\pi\sigma^2_g) + \log{(|X^TX|)} - \log{(|X^TH^{-1}X|)}\right] \\
+                                                     & \approx (tc-N)\log{(a - \mathbf{b}^T(L^*)^{-1}L^{-1}\mathbf{b})} \\
+                                                     & -\left((N-n)\log{(\delta)} + \sum_{i=1}^n \log{(t_i + \delta)}\right) - \sum_{i=1}^{tc} L_{i,i}^2 \label{lr_iter} 
+        \end{split}
+        \end{align}
+        
+        Note that Equations \ref{lf_iter} and \ref{lr_iter} remove terms that are independent of $\delta$ since they are not required for finding its optimal value, indicated by the $\approx$ symbol. These likelihoods are maximized using the optimize function in R. For the full likelihood
+        
+        \begin{equation}
+            \hat{\sigma}_g^2 = \frac{R}{\hat{\delta}N}
+        \end{equation}
+        
+        \noindent For the restricted likelihood
+        
+        \begin{equation}
+            \hat{\sigma}_g^2 = \frac{R}{\hat{\delta}(N-tc)}
+        \end{equation}
+        
+        \noindent For both likelihoods
+        
+        \begin{equation}
+            \hat{\sigma}_e^2 = \hat{\delta}\hat{\sigma}_g^2
+        \end{equation}
+    \subsection{Likelihood refactoring with no missing data}
+    
+        When there is no missing data, the likelihood functions can be further simplified. Note that in this case, $N = nt$ and all $t_i = t$. Hence,
+        
+        \begin{align}
+        \begin{split}
+            \log{(|H|)} & = (N-n)\log{(\delta)} + \sum_{i=1}^n \log{(t_i + \delta)} \\
+                        & = (nt-n)log{(\delta)} + n\log{(t + \delta)}
+        \end{split}
+        \end{align}
+        
+        If the input terms $\mathbf{y}$, $X$, and $K$ are permuted resulting in samples being sorted in order of context, and the covariates in $X$ are sorted in order of context, we can decompose $H$ and $X$ into
+        
+        \begin{equation}
+            H = (\mathbf{1}_{t} + \delta I_t) \otimes I_n 
+        \end{equation}
+        \begin{equation}
+            X = I_t \otimes X_{\text{dense}}
+        \end{equation}
+        
+        \noindent where $\otimes$ indicates the Kronecker product and $X_{\text{dense}} \in R^{n \times c}$ is a typical representation of the covariates for each individual without multiple contexts (i.e. samples as rows and covariates as columns). Utilizing the properties of Kronecker products, we can perform the following reformulation
+
+        \begin{align}
+        \begin{split}
+            (X^TH^{-1}X)^{-1} & = ((I_t \otimes X^T_{\text{dense}})((\mathbf{1}_{t} + \delta I_t) \otimes I_n )^{-1}(I_t \otimes X_{\text{dense}}))^{-1} \\
+                              & = ((\mathbf{1}_{t} + \delta I_t)^{-1} \otimes X^T_{\text{dense}}X_{\text{dense}})^{-1} \\
+                              & = (\mathbf{1}_{t} + \delta I_t) \otimes (X^T_{\text{dense}}X_{\text{dense}})^{-1}
+        \end{split}
+        \end{align}
+        
+        \begin{align}
+        \begin{split}
+            \log{\left(|(X^TH^{-1}X)^{-1}|\right)} & = \log{(|(\mathbf{1}_{t} + \delta I_t) \otimes (X^T_{\text{dense}}X_{\text{dense}})^{-1}|)} \\
+                                      & = \log{(|(\mathbf{1}_{t} + \delta I_t)|^c|(X^T_{\text{dense}}X_{\text{dense}})^{-1}|^t)} \\
+                                      & = c\log{(|(\mathbf{1}_{t} + \delta I_t)|)} + t\log{(|(X^T_{\text{dense}}X_{\text{dense}})^{-1}|)} \\
+                                      & = c\log{\left(\frac{1}{(t+\delta)\delta^{t-1}}\right)} + t\log{(|(X^T_{\text{dense}}X_{\text{dense}})^{-1}|)} \\
+                                      & = c\left(-\log{(t+\delta)} - (t-1)\log{(\delta)}\right) + t\log{(|(X^T_{\text{dense}}X_{\text{dense}})^{-1}|)} \label{logXHX}
+        \end{split}
+        \end{align}
+        
+        \noindent Note that the remaining determinant in Equation \ref{logXHX} will not need to be calculated since it is independent of $\delta$. Next, we show that $\hat{\beta}$ is independent of $\delta$.
+        
+        \begin{align}
+        \begin{split}
+            \hat{\beta} & = (X^TH^{-1}X)^{-1}X^TH^{-1}\mathbf{y} \\
+                        & = \left((\mathbf{1}_{t} + \delta I_t) \otimes (X^T_{\text{dense}}X_{\text{dense}})^{-1}\right)X^TH^{-1}\mathbf{y} \\
+                        & = \left((\mathbf{1}_{t} + \delta I_t) \otimes (X^T_{\text{dense}}X_{\text{dense}})^{-1}\right)(I_t \otimes X^T_{\text{dense}})((\mathbf{1}_{t} + \delta I_t)^{-1} \otimes I_n )\mathbf{y} \\
+                        & = \left((\mathbf{1}_{t} + \delta I_t) \otimes (X^T_{\text{dense}}X_{\text{dense}})^{-1}X^T_{\text{dense}}\right)((\mathbf{1}_{t} + \delta I_t)^{-1} \otimes I_n )\mathbf{y} \\
+                        & = \left((\mathbf{1}_{t} + \delta I_t) (\mathbf{1}_{t} + \delta I_t)^{-1}\otimes (X^T_{\text{dense}}X_{\text{dense}})^{-1}X^T_{\text{dense}}\right)\mathbf{y} \\
+                        & = \left(I_t\otimes (X^T_{\text{dense}}X_{\text{dense}})^{-1}X^T_{\text{dense}}\right)\mathbf{y}
+        \end{split}
+        \end{align}
+        
+        This form of $\hat{\beta}$ shows that the optimal coefficients are equivalent to fitting separate ordinary least squares (OLS) models for each context. We compute $\hat{\beta}$ by concatenating these OLS estimates. Given this term, we can also compute the residuals of this model $\mathbf{s} = (\mathbf{y} - X\hat{\beta})$ and reformulate $R$ as follows.
+        
+        \begin{align}
+        \begin{split}
+            R & = (\mathbf{y} - X\hat{\beta})^TH^{-1}(\mathbf{y} - X\hat{\beta}) \\
+              & = \mathbf{s}^TH^{-1}\mathbf{s} \\
+              & = \sum_{i=1}^{nt}\mathbf{s}_i \sum_{j=1}^{nt} \mathbf{s}_j H^{-1}_{j,i} \\
+              & = \frac{1}{\delta} \left(\sum_{i=1}^{nt} \mathbf{s}_i^2 \right) + \frac{1}{\delta(t + \delta)} \left(-\sum_{i=1}^{n} \left(\sum \mathbf{s}_{\text{ind}(i)}\right)^2\right)
+              %& = \frac{1}{\delta} \left(\sum_{i=1}^{nt} \mathbf{s}_i^2 \right) + \frac{1}{t + \delta} \left(-\sum_{i=1}^{nt} \mathbf{s}_i \sum \mathbf{s}_{\text{ind}(i)}\right)
+        \end{split}
+        \end{align}
+    
+        The term $ \sum \mathbf{s}_{\text{ind}(i)} $ denotes the sum of residuals for an individual across all contexts. Let $u = \sum_{i=1}^{nt} \mathbf{s}_i^2$ and $v = -\sum_{i=1}^{n} \left(\sum \mathbf{s}_{\text{ind}(i)}\right)^2$.
+        \begin{equation}
+            R = \frac{1}{\delta}u + \frac{1}{\delta(t + \delta)} v
+        \end{equation}
+        
+        Now we can reformulate the log-likelihoods, omitting terms that do not depend on $\delta$.
+        
+        \begin{align}
+        \begin{split}
+            l_F(\delta) & = -nt\log{(R)} - \log(|H|) \\
+                        & = -nt\log{\left(\frac{1}{\delta}u + \frac{1}{\delta(t + \delta)} v\right)} - (nt - n)\log{(\delta)} - n\log{(t+\delta)} \\
+                        & = -nt\log{\left(u + \frac{1}{t+\delta} v\right)} + n \log{\left(\frac{\delta}{t+\delta}\right)}
+        \end{split}
+        \end{align}
+        
+        \begin{align}
+        \begin{split}
+            l_R(\delta) & = (tc-nt)\log{(R)} - \log(|H|) - \log{(|(X^TH^{-1}X)^{-1}|)} \\
+                        %& = (tc-nt)\log{\left(\frac{1}{\delta}u + \frac{1}{\delta(t + \delta)} v\right)} - (nt - n)\log{(\delta)} - n\log{(t+\delta)} + c\log{(t + \delta)} + (tc-c)\log{(\delta)} \\
+                        & = (tc-nt)\log{\left(u + \frac{1}{t+\delta} v\right)} + (c-n)\log{\left(\frac{t+\delta}{\delta}\right)}
+        \end{split}
+        \end{align}
+        
+        Both functions are differentiable with respect to $\delta$. Moreover, both derivatives have the same root
+        
+        \begin{equation}
+            \hat{\delta} = \frac{-tu - v}{u+v}
+        \end{equation}
+    
+        The scalar values $u$ and $v$ can be calculated by performing a separate OLS regression for each context, which can be completed in $O(t(nc^2 + c^3))$ time for a naive OLS implementation. Compared to the methods described above, this approach requires no iterative optimization and the estimate is optimal. Our implementation has a time complexity of $O(c^3 + nc^2 + tcn)$. 
+        
+    \subsection{Resource requirement simulation comparison}
+        We installed EMMA v1.1.2 and manually built GEMMA from its GitHub source (genetics-statistics/GEMMA.git, commit 9c5dfbc). We edited the source code of GEMMA to prevent the automatic addition of intercept term in the design matrix (commented out lines 1946 to 1954 of src/param.cpp).
+        
+        Data were simulated using the mcLMM package. Sample sizes of 100, 200, 300, 400, and 500 were simulated with 50 contexts. Context sizes of 4, 8, 16, 32, and 64 were simulated with 500 samples. Data were simulated with $\sigma^2_e=0.2$ and $\sigma^2_g=0.4$ and a sampling rate of 0.5. Memory usage of each method was measured using the peakRAM R package (v 1.0.2). 
+    
+    \subsection{False positive rate simulation}
+        We simulated gene expression levels in multiple tissues for individuals where there were no eQTLs. In other words, gene expression levels were not affected by any SNPs. We considered 10,000 genes and 100 SNPs resulting in one million gene-SNP pairs. We simulated 1,000 individuals. We also examined false positive rates with 500 and 800 individuals. We generated 49 such datasets where the number of tissues varied from 2 to 50. To simulate the genotypes for each subject, we randomly generated two haplotypes (vectors consisting of 0 and 1) assuming a minor allele frequency (MAF) of 30\%. To simulate gene expression levels from multiple tissues among the same individuals, we sampled gene expression from the following multivariate normal distribution:
+        
+        \begin{equation}
+            \mathbf{y} \sim N(0,\sigma_g^2\mathbf{K} + \sigma_e^2\mathbf{I} )
+        \end{equation}
+        
+        where $\mathbf{y}$ is an $N \times T$ vector representing the gene expression levels of $N$ individuals in $T$ tissues and $\mathbf{K}$ is an $NT \times NT$ matrix corresponding the correlation between the subjects across the tissues. $K_{i,j} = 1$ when $i$ and $j$ are from two tissues of the same individuals, $K_{i,j} = 0$ otherwise. Here, we let $\sigma_g = \sigma_e = 0.5$. We used a custom R function (included with the mcLMM package) to simulate data from this distribution, which is based on sampling from a smaller covariance matrix for each block of measurements from an individual.
+        
+        After generating the simulation datasets, we first ran mcLMM to obtain the estimated effect sizes and their standard errors, as well as the correlation matrices. The results from mcLMM were used as the input of METASOFT for meta-analysis to evaluate the significance. False positive rate was calculated as the proportion of gene-SNP pairs with p-values smaller than the significance level ($\alpha = 0.05$).
+    
+    \subsection{True positive simulations}
+        We developed the true positive simulation framework based on a previous study describing mash \cite{Urbut2019}. We simulated effects for 20,000 gene-SNP pairs in 44 tissues, 400 of which have non-null effects (true positives) and 19,600 of which have null effects. Let $\beta_{jr}$ denote the effects of the gene-SNP pair $j$ in context/tissue $r$ and $\beta_j$ is a vector of effects across various tissues, including null effects and non-null effects. We simulated the gene expression levels for 1,000 individuals as:
+            \begin{equation}
+                \mathbf{y} = \beta_{jr}^T X + \mathbf{e}
+            \end{equation}
+        where $X$ denotes the genotypes of the individuals that were simulated as described in the false positive rate simulation. $\mathbf{e} \sim N(0,\sigma_g^2\mathbf{K} + \sigma_e^2\mathbf{I})$, which is similar to the simulation in the false positive rate simulation. For $\beta_j$, we defined two types of non-null effects and simulated them in different ways:
+        \begin{itemize}
+            \item Shared, structured effects: non-null effects are shared in all tissues and the sharing is structured. The non-null effects are similar in effect sizes and directions (up-regulation or down-regulation) across all tissues, and this similarity would be stronger among some subsets of tissues. For 19,600 null effects, we set $\beta_j=0$. For 400 non-null effects, we assumed that each $\beta_j$ independently followed a multivariate normal distribution with mean 0 and variance $\omega U_k$,
+            where $k$ is an index number randomly sample from ${1,\ldots,8}$. $\omega = |\omega^\prime|, \omega^\prime \sim N(0, 1)$ represents a scaling factor to help capture the full range of effects. $U_k$ are $44 \times 44$ data-driven covariance matrices learned from the GTEx dataset, which are provided in \cite{Urbut2019}.
+            \item Shared, unstructured effects: non-null effects are shared in all tissues but the sharing is unstructured or independent across different tissues. For 19,600 null effects, we set $\beta_j=0$. For 400 non-null effects, we sampled $\beta_j$ from a multivariate normal distribution with mean of 0 and variance of $0.01I$, where $I$ is a $44 \times 44$ identity matrix.
+        \end{itemize}
+        
+        After simulating the gene expression levels $\mathbf{y}$, we first ran mcLMM on the simulated datasets to acquire the estimated effect sizes and their standard errors, as well as the correlation matrices. Then we apply METASOFT for meta-analysis with mcLMM outputs to evaluate the significance. For mash, we first performed simple linear regression to get the estimates of the effects and their standard errors in each tissue separately. Later, these estimates and standard errors were used as the inputs for mash, which returned the measure of significance for each effect, the local false sign rate (lfsr). Finally, we employed the ``pROC'' R package \cite{Robin2011-ww} to calculate the receiver operating characteristic (ROC) curve and area under the ROC curve with the significance measures (p-values for mcLMM and METASOFT, lfsr for mash) and the correct labels of null effects and non-null effects.
+    
+    \subsection{Analysis of the GTEx dataset}
+        The Genotype-Tissue Expression (GTEx) v8 dataset \cite{GTEx_Consortium2020-xx} was used in this study. We downloaded the gene expression data, the summary statistics of single-tissue cis-eQTL data, using a 1 MB window around each gene, and the covariates in the eQTL analysis from GTEx portal (https://gtexportal.org/home/datasets). The subject-level genotypes data was acquired from dbGaP accession number phs000424.v8.p2. The GTEx v8 dataset includes 49 tissues from 838 donors. And we selected 15,627 genes that express in all 49 tissues. We only included SNPs with minor allele frequency (MAF) larger than 1\% and missing rate lower than 5\%. We applied mash and mcLMM plus METASOFT to the GTEx v8 dataset in our analysis. 
+        
+        As mash needed to learn correlation structure among non-significant tests and data-driven covariance matrices before fitting its model. We prepared its input by selecting the top SNP with the smallest p-value and 49 random SNPs (or all other SNPs if there are fewer than 49 SNPs left in a gene) in every gene from the eQTL analysis in the GTEx v8 dataset. There were 560,475 gene-SNP pairs in total. mash used the estimated effect sizes and standard errors of these gene-SNP pairs to learn the correlation structure of different conditions/tissues and later the canonical covariances. And we used the top SNPs to set up the data-driven covariances. Then we fitted mash to the random set of gene-SNP pairs with the canonical and data-driven covariances. With the fitted mash mode, we computed the posterior summaries including local false sign rate (lfsr) \cite{stephens2017false} for the selected gene-SNP pairs to estimate the significance. We defined significant gene-SNP pairs as those with lfsr $<$ 0.05 in any tissues. 
+        
+        We applied mcLMM to the same set of gene-SNP pairs. We regressed out unwanted confounding factors in gene expression levels for each tissue with a linear model using covariates provided by GTEx. Covariates of each sample included 
+        top 5 genotyping principal components, PEER factors \cite{Stegle2012-zc} (15 factors for tissues with fewer than 150 samples, 30 factors for those with 150-250 samples, 45 factors for those with 250-350 samples, and 60 factors for those with more than 350 samples), sequencing platform, and sex. Then we ran mcLMM with the SNP genotypes and processed gene expression levels of all 838 individuals across 49 GTEx tissues for each gene-SNP pair. Missing values in gene expression were allowed. The effect sizes, standard errors, and correlation matrices estimated by mcLMM were meta-analyzed with METASOFT to evaluate the significance. A gene-SNP pair was significant if its p-value was smaller than 0.05. We considered both FE and RE2 models of METASOFT in the calculation of p-values.
+    
+    \subsection{Analysis of the UK Biobank dataset}
+        This work was conducted using the UK Biobank Resource under application 33127. Samples were filtered for Caucasian individuals (Data-Field 22006)). Hard imputed genotype data from the UK Biobank were LD pruned using a window size of 50, step size of 1, and correlation threshold of 0.2. SNPs were further filtered for minor allele frequency of at least 0.01 and a Hardy-Weinberg equilibrium p-value greater than 1e-7 using Plink 2 \cite{PLINK2}. Samples were filtered for unrelated individuals with KING using a cutoff value of 0.125 \cite{KING}. Genotype data were split by chromosome and converted to bigsnpr format (v 1.4.4) for memory efficiency \cite{bigsnpr}.
+        
+        The following data fields were retrieved: age at recruitment (Data-Field 31), sex (Data-Field 21022), BMI (Data-Field 23104), body fat percentage (Data-Field 23099), 10 genetic principal components (Data-Field 22009), HDL Cholesterol (Data-Field 30760), LDL Direct (Data-Field 30780), Apolipoprotein A (Data-Field 30630), Apolipoprotein B (Data-Field 30640), and Triglycerides (Data-Field 30870). Continuous phenotypes were visually inspected and triglycerides were log-transformed due to skewness. Data were filtered for complete observations. All fields were scaled to unit variance and centered at 0. 
+        
+        HDL cholesterol, LDL cholesterol, Apolipoprotein A, Apolipoprotein B, and triglycerides were combined as response variables in the LMM and age, sex, BMI, body fat percentage, and the top 10 genetic principal components were used as additional covariates in the model. Each SNP was marginally fit with mcLMM. The coefficients output by this model for each phenotype were meta-analyzed to calculate FE p-values using METASOFT as packaged with Meta Tissue v 0.5. The top GWAS hits for five different chromosomes (one per chromosome) were validated using the NHGRI-EBI GWAS catalog \cite{GWAS_catalog} and compared to studies for LDL and HDL cholesterol (GCST008035 and GCST008037).
+        
 \section{Results}
+
+    \subsection{Multi-context linear mixed models}
+        We implement the statistical model described in Meta-Tissue  \cite{Sul}, where we model the multi-context data as follows:
+        
+        \begin{equation}
+            \mathbf{y} = X\beta + \mathbf{u} + \mathbf{e}
+        \end{equation}
+        where $\mathbf{u} \sim N(0,\sigma_g^2 K)$ and $\mathbf{e} \sim N(0,\sigma_e^2 I)$. For $n$ individuals and $t$ contexts, $\mathbf{y}$ is a vector of $nt$ responses, $K$ is an $nt$ by $nt$ binary matrix where a value of $1$ indicates that the observations were sampled from the same individual. Compared to a standard regression model, the variance component $\mathbf{u}$ accounts for within-individual variation that may occur with repeated sampling. The design matrix $X$ fits coefficients $\beta$ for each feature within each context independently. These coefficients, which describe the effect of the feature on the response within each context, can be used in a meta-analytic framework to combine the results. In our pipeline, we utilize the random effects model (RE2) from METASOFT, which assumes that effect sizes may be different across contexts and was shown to outperform existing meta-analysis methods \cite{Metasoft}.
+        
+        Fitting this LMM requires estimation of the parameters $\sigma^2_g$ and $\sigma^2_e$, which can be estimated with traditional likelihood or restricted-likelihood approaches or through various optimized methods that have been developed, such as EMMA and GEMMA \cite{Kang, Zhou}. These approaches require an eigendeomposition of the matrix $K$ with is traditionally considered to be an $O((nt)^3)$ operation. mcLMM utilizes the block structure of the matrices in this model to perform matrix operations within contexts and avoids any eigendecomposition operations. This approach provides massive speedups with runtime complexities that are linear with respect to sample size $n$ rather than cubic. As a note, mcLMM is not an approximation and fits identical models to these existing approaches.
+    
+
+    \subsection{mcLMM is computationally efficient}
+        To demonstrate the efficiency of mcLMM compared to existing approaches, we applied our method to simulated data of varying sample sizes and number of contexts. For these simulations, we simulated a sampling rate of 0.5, which indicates that only half of all possible individual-context pairs of observations are expected to be sampled. 
+        
+        We first applied our method to simulations with a fixed number of 50 contexts and varied the sample size from 100 to 500. From these experiments, we observed that mcLMM requires computational time orders of magnitude less than EMMA and GEMMA. Similarly, when we fixed the number of samples at 500 and varied the context sizes from 4 to 64, we observed dramatically reduced runtimes for mcLMM.
+        
+        In these experiments, mcLMM also significantly reduces the memory footprint compared to EMMA and GEMMA, since we avoid creating any $nt$ by $nt$ matrices. In these simulations, existing approaches quickly grow memory requirements, with usages that grow to dozens of gigabytes for modestly sized datasets in the thousands of samples. mcLMM allows large-scale studies to be performed on relatively little computational resources (Figure \ref{fig:fig1}). 
+        
+        %% Figure 1 %%
+        \begin{figure}
+            \centering
+            \includegraphics[width=0.75\textwidth]{chapter3/figures/Figure_1.pdf}
+            \caption{Resource requirements of mcLMM, GEMMA, and EMMA across various simulated individual and context sizes with missing values (sampling rate of 0.5). For varying individuals, contexts were fixed at 50. For varying contexts, individuals were fixed at 500. (A-B) Runtime with log10(seconds) on the y-axis and number of individuals or contexts simulated on the x-axis. (C-D) Memory usage (GB) on the y-axis and number of individuals or contexts simulated on the x-axis. }
+            \label{fig:fig1}
+        \end{figure}
+        
+        In cases where there is no missing data, mcLMM allows for further speedups. We ran similar simulations to compare mcLMM with no missing data (optimal model) and mcLMM with missing data (iterative model). We observed a dramatic speedup, with sample sizes of 500,000 individuals across 10 contexts completed in under 10 seconds for the optimal model compared to around 15 minutes for the iterative model.
+    
+    \subsection{mcLMM enables powerful meta analyses to detect eQTLs}
+        We utilized mcLMM to reduce the computational resource requirements of the Meta-Tissue pipeline, which fits a multiple-context LMM and combines the resulting effect sizes using METASOFT \cite{Sul}. While powerful, the existing approach utilizes EMMA to fit the LMM. For a recent release from the GTEx consortium  \cite{GTEx_Consortium2020-xx}, each pair of genes and single nucleotide polymorphisms (SNPs) required over two hours to run. Across hundreds of thousands of gene-SNP pairs, this method would require years of computational runtime to complete. Utilizing mcLMM, we were able to complete this analysis in 3 days parallelized over each chromosome. 
+        
+        We compared our approach to a method known as mash \cite{Urbut2019}. This approach utilizes effect sizes estimated within each context independently and employs a Bayesian approach to combine their results for meta-analysis. In order to estimate the power of these methods, we performed simulations as described in the methods. In null simulations, we observed well-controlled false positive rates at $\alpha = 0.05$ for mcLMM coupled with METASOFT. In our simulation with true positives, we observed an increased area under the receiver operating characteristic (AUROC) for mcLMM coupled with the random effects (RE2) METASOFT model compared to mash (Figure \ref{fig:fig2}).
+        
+        %% Figure 2 %%
+        \begin{figure}
+            \centering
+            \includegraphics[width=\textwidth]{chapter3/figures/Figure_2.pdf}
+            \caption{AUROC curves of mcLMM+METASOFT and mash in simulated data, assuming the effects of gene-SNP pairs are (A) shared and unstructured, and (B) shared and structured.}
+            \label{fig:fig2}
+        \end{figure}
+
+        Next, we compared the number of significant associations identified in the GTEx dataset. The mash approach utilized gene-SNP effect sizes estimated by the GTEx consortium within each tissue independently. Concordant with our simulations, we observed that the Meta-Tissue approach, utilizing mcLMM for vast speedup, identified more significant eQTLs than mash (Figure \ref{fig:fig3}). These associations allow researchers to better understand the link between genetic variation and complex phenotypes through possible mediation of gene expression. 
+        
+        %% Figure 3 %%
+        \begin{figure}
+            \centering
+            \includegraphics[width=0.75\textwidth]{chapter3/figures/Figure_3.pdf}
+            \caption{Venn diagram of significant eQTLs identified by meta-analysis methods in the GTEx dataset. We compared mcLMM using two different models in METASOFT (RE2 and FE) to mash. Note that areas are not proportional to the number of eQTLs in each region. mcLMM+METASOFT (RE2) identified a total of 321,117 significant associations that contained 225,818 eQTLs identified by mash.}
+            \label{fig:fig3}
+        \end{figure}
+        
+    \subsection{mcLMM scales to millions of samples across related phenotypes}
+        As a practical application of the efficiency of mcLMM, we performed a multiple phenotype GWAS in the UK Biobank. A multiple phenotype GWAS associates SNPs with several related phenotypes in order to increase the effective sample size for greater power, under the assumption that the phenotypes are significantly correlated. For our analysis, we combined HDL and LDL cholesterol, Apolipoprotein A and B, and triglyceride levels across 323,266 unrelated caucasian individuals in the UK Biobank. In total, 1,616,330 observations of these related phenotypes were fit as responses in the LMM. 
+        
+        The mcLMM approach completed this analysis over 211,642 SNPs with an additional 14 covariates, parallelized over each chromosome, within a day. Each chromosome was analyzed on a single core machine with 32 GB of memory, with each test taking around 2 seconds to complete. We identified several significant loci, a subset of which replicate previous findings for specific phenotypes included in the model, such as HDL cholesterol \cite{Wojcik} (Figure \ref{fig:fig4}). Existing approaches, namely EMMA and GEMMA, require orders of magnitude more memory to begin this analyses and could not be run on the available computational resources.
+        
+        %% Figure 4 %%
+        \begin{figure}
+            \centering
+            \includegraphics[width=\textwidth]{chapter3/figures/Figure_4.png}
+            \caption{Multiple phenotype GWAS results from UK Biobank. Five phenotypes (LDL cholesterol, HDL cholesterol, Apolipoprotein A, Apolipoprotein B, and triglyceride levels) were used as responses in the mcLMM framework. The model was fit with 1,616,330 observations from 323,266 unrelated Caucasian individuals. In total, 211,642 SNPs were tested with an additional 14 covariates. Each test required around 2 seconds to run on a 32GB machine and was parallelized over each chromosome. The -log10 of the p-values are plot on the y-axis and genomic positions on the x-axis. The horizontal dashed line indicates the genome wide significance level at $p=0.05/1e6$. The top hit for 5 different chromosomes is annotated with the gene containing the SNP. These genes have been previously identified as associated with a subset of these phenotypes.}
+            \label{fig:fig4}
+        \end{figure}
 \section{Discussion}
+
+    We presented mcLMM, an efficient method for fitting LMMs used for multiple context association studies. Our method provides exact results and scales linearly in time and memory with respect to sample size, while existing methods are cubic. This efficiency allows mcLMM to process millions of samples over several contexts within a day on minimal computational resources, as we showed in simulation and in the UK Biobank. The association parameters learned by mcLMM can further be utilized with the METASOFT framework to provide powerful meta-analysis of the associations, as we showed in the GTEx dataset. 
+    
+    Previous work has observed the potential speedup to linear complexity for LMMs when the matrix $K$ is approximated with a low rank representation \cite{Lippert2011}. Here, we optimize the method specifically for the low rank matrix that arises naturally in multiple context association studies, allowing our method to provide exact results and scale to hundreds of thousands of samples with minimal computational resources.

@@ -1,6 +1,7 @@
 
 \documentclass [PhD] {uclathes}
 
+\usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage[usenames,dvipsnames]{xcolor}
@@ -49,17 +50,22 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\acknowledgments {First and foremost, I thank my advisors, Eran Halperin and Jae Hoon Sul. I am extremely grateful to have both as amazing mentors through my growth as a computational researcher. They kept me engaged with amazing research and I look forward to continuing this work.
+\acknowledgments {First and foremost, I thank my advisors, Eran Halperin and Jae Hoon Sul. I am extremely grateful to have both as amazing mentors through my growth as a computational researcher. They kept me engaged with amazing research and guidance over the past four years and I look forward to continuing this work.
 
-I would also like to thank Eleazar Eskin, who roped me into bioinformatics in the first place and supported me through my PhD.
-
-Much of my work was done with Päivi Pajukanta, Noah Zaitlen, and Sriram Sankararaman. I thank these professors for great collaboration and mentorship.
-
-I thank Lana Martin and Robert Smith, who helped me immensely with funding and outreach projects during their time in Eleazar’s lab. I thank Sim-Lin Lau and Margaret Chu for their amazing support.
+I would also like to thank Eleazar Eskin, who roped me into bioinformatics in the first place and supported me through my PhD. Much of my work was done with Päivi Pajukanta, Noah Zaitlen, and Sriram Sankararaman. I thank these professors for great collaboration and mentorship. I thank Lana Martin and Robert Smith, who helped me immensely with funding and outreach projects during their time in Eleazar’s lab. I thank Sim-Lin Lau and Margaret Chu for their amazing support.
 
 Many thanks to my lab mates in Eran's lab (Elior, Mike, Leah, Johnson, Liat, Ulzee, Brian, Nadav, Jeff) and Jae Hoon's Lab (Albert, Sarah, Lingyu). Also thanks to our shared lab space friends from Sriram's lab (Alec, Chris, Ruthie, Arun, Ariel, Ali). I really enjoyed talking too much during work hours and tracking down every opportunity for free food. 
 
-Finally, I would like to thank my family for their support and pride in the work I do. I thank my wife, the amazing Dr. Maegan Lu. Over the past 8 years, we have grown so much together and I strive to keep up with her.}
+Finally, I would like to thank my family for their unwavering support. I thank my wife, the amazing Dr. Maegan Lu. Over the past 8 years, we have grown so much together and I strive to keep up with her.
+\\
+
+Chapter Two of this dissertation is a version of Brandon Jew, Marcus Alvarez, Elior Rahmani, Zong Miao, Arthur Ko, Kristina M. Garske, Jae Hoon Sul, Kirsi H. Pietiläinen, Päivi Pajukanta, Eran Halperin. Accurate estimation of cell composition in bulk expression through robust integration of single-cell information. \textsl{Nature Communications.} 2020.
+
+Chapter Three is a version of Brandon Jew, Jiajin Li, Sriram Sankararaman, Jae Hoon Sul. An efficient linear mixed model framework for meta-analytic association studies across multiple contexts. \textsl{Under review}.
+
+Chapter Four is a version of Brandon Jew, Jae Hoon Sul, Noah Zaitlen. Selection contributes to skewed X chromosome inactivation across human tissues. \textsl{Under review}.
+
+}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -94,7 +100,7 @@ Finally, I would like to thank my family for their support and pride in the work
 \end{center}
   \textbf{Brandon Jew}, Jae Hoon Sul, Noah Zaitlen. Selection contributes to skewed X chromosome inactivation across human tissues. \\
   
-  \noindent \textbf{Brandon Jew}, Jiajin Li, Buhm Han, Eleazar Eskin, Sriram Sankararaman, Jae Hoon Sul. An efficient linear mixed model framework for meta-analytic association studies across multiple contexts. \\
+  \noindent \textbf{Brandon Jew}, Jiajin Li, Sriram Sankararaman, Jae Hoon Sul. An efficient linear mixed model framework for meta-analytic association studies across multiple contexts. \\
   
   \noindent Elior Rahmani*, \textbf{Brandon Jew}*, Eran Halperin. Differential DNA methylation at cell-type resolution: establishing rigorous guidelines.
 }
@@ -131,7 +137,7 @@ Finally, I would like to thank my family for their support and pride in the work
 
 \input{chapter4/chapter4}
  \typeout{}
-\bibliography{chapter2/chapter2}
+\bibliography{chapter2/chapter2, chapter3/chapter3}
 \bibliographystyle{unsrt}
 
 \end {document}
