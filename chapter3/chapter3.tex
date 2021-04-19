@@ -288,7 +288,7 @@
         As mash needed to learn correlation structure among non-significant tests and data-driven covariance matrices before fitting its model. We prepared its input by selecting the top SNP with the smallest p-value and 49 random SNPs (or all other SNPs if there are fewer than 49 SNPs left in a gene) in every gene from the eQTL analysis in the GTEx v8 dataset. There were 560,475 gene-SNP pairs in total. mash used the estimated effect sizes and standard errors of these gene-SNP pairs to learn the correlation structure of different conditions/tissues and later the canonical covariances. And we used the top SNPs to set up the data-driven covariances. Then we fitted mash to the random set of gene-SNP pairs with the canonical and data-driven covariances. With the fitted mash mode, we computed the posterior summaries including local false sign rate (lfsr) \cite{stephens2017false} for the selected gene-SNP pairs to estimate the significance. We defined significant gene-SNP pairs as those with lfsr $<$ 0.05 in any tissues. 
         
         We applied mcLMM to the same set of gene-SNP pairs. We regressed out unwanted confounding factors in gene expression levels for each tissue with a linear model using covariates provided by GTEx. Covariates of each sample included 
-        top 5 genotyping principal components, PEER factors \cite{Stegle2012-zc} (15 factors for tissues with fewer than 150 samples, 30 factors for those with 150-250 samples, 45 factors for those with 250-350 samples, and 60 factors for those with more than 350 samples), sequencing platform, and sex. Then we ran mcLMM with the SNP genotypes and processed gene expression levels of all 838 individuals across 49 GTEx tissues for each gene-SNP pair. Missing values in gene expression were allowed. The effect sizes, standard errors, and correlation matrices estimated by mcLMM were meta-analyzed with METASOFT to evaluate the significance. A gene-SNP pair was significant if its p-value was smaller than 0.05. We considered both FE and RE2 models of METASOFT in the calculation of p-values.
+        top 5 genotyping principal components, PEER factors \cite{Stegle2012-zc} (15 factors for tissues with fewer than 150 samples, 30 factors for those with 150-250 samples, 45 factors for those with 250-350 samples, and 60 factors for those with more than 350 samples), sequencing platform, and sex. Then we ran mcLMM with the SNP genotypes and processed gene expression levels of all 838 individuals across 49 GTEx tissues for each gene-SNP pair. Missing values in gene expression were allowed. The effect sizes, standard errors, and correlation matrices estimated by mcLMM were meta-analyzed with METASOFT to evaluate the significance under both the FE and RE2 models. The resulting p-values were converted to q-values \cite{qvalue} to control false discovery rates. A gene-SNP pair was considered significant if its false discovery rate (FDR) was smaller than 5\%.
     
     \subsection{Analysis of the UK Biobank dataset}
         This work was conducted using the UK Biobank Resource under application 33127. Samples were filtered for Caucasian individuals (Data-Field 22006)). Hard imputed genotype data from the UK Biobank were LD pruned using a window size of 50, step size of 1, and correlation threshold of 0.2. SNPs were further filtered for minor allele frequency of at least 0.01 and a Hardy-Weinberg equilibrium p-value greater than 1e-7 using Plink 2 \cite{PLINK2}. Samples were filtered for unrelated individuals with KING using a cutoff value of 0.125 \cite{KING}. Genotype data were split by chromosome and converted to bigsnpr format (v 1.4.4) for memory efficiency \cite{bigsnpr}.
@@ -320,49 +320,68 @@
         %% Figure 1 %%
         \begin{figure}
             \centering
-            \includegraphics[width=0.75\textwidth]{chapter3/figures/Figure_1.pdf}
+            \includegraphics[width=\textwidth]{chapter3/figures/Figure_1.pdf}
             \caption{Resource requirements of mcLMM, GEMMA, and EMMA across various simulated individual and context sizes with missing values (sampling rate of 0.5). For varying individuals, contexts were fixed at 50. For varying contexts, individuals were fixed at 500. (A-B) Runtime with log10(seconds) on the y-axis and number of individuals or contexts simulated on the x-axis. (C-D) Memory usage (GB) on the y-axis and number of individuals or contexts simulated on the x-axis. }
             \label{fig:fig1}
         \end{figure}
         
-        In cases where there is no missing data, mcLMM allows for further speedups. We ran similar simulations to compare mcLMM with no missing data (optimal model) and mcLMM with missing data (iterative model). We observed a dramatic speedup, with sample sizes of 500,000 individuals across 10 contexts completed in under 10 seconds for the optimal model compared to around 15 minutes for the iterative model.
-    
-    \subsection{mcLMM enables powerful meta analyses to detect eQTLs}
-        We utilized mcLMM to reduce the computational resource requirements of the Meta-Tissue pipeline, which fits a multiple-context LMM and combines the resulting effect sizes using METASOFT \cite{Sul}. While powerful, the existing approach utilizes EMMA to fit the LMM. For a recent release from the GTEx consortium  \cite{GTEx_Consortium2020-xx}, each pair of genes and single nucleotide polymorphisms (SNPs) required over two hours to run. Across hundreds of thousands of gene-SNP pairs, this method would require years of computational runtime to complete. Utilizing mcLMM, we were able to complete this analysis in 3 days parallelized over each chromosome. 
-        
-        We compared our approach to a method known as mash \cite{Urbut2019}. This approach utilizes effect sizes estimated within each context independently and employs a Bayesian approach to combine their results for meta-analysis. In order to estimate the power of these methods, we performed simulations as described in the methods. In null simulations, we observed well-controlled false positive rates at $\alpha = 0.05$ for mcLMM coupled with METASOFT. In our simulation with true positives, we observed an increased area under the receiver operating characteristic (AUROC) for mcLMM coupled with the random effects (RE2) METASOFT model compared to mash (Figure \ref{fig:fig2}).
+        In cases where there is no missing data, mcLMM allows for further speedups. We ran similar simulations to compare mcLMM with no missing data (optimal model) and mcLMM with missing data (iterative model). We observed a dramatic speedup, with sample sizes of 500,000 individuals across 10 contexts completed in under 10 seconds for the optimal model compared to around 15 minutes for the iterative model (Figure \ref{fig:fig2}).
         
         %% Figure 2 %%
         \begin{figure}
             \centering
             \includegraphics[width=\textwidth]{chapter3/figures/Figure_2.pdf}
-            \caption{AUROC curves of mcLMM+METASOFT and mash in simulated data, assuming the effects of gene-SNP pairs are (A) shared and unstructured, and (B) shared and structured.}
+            \caption{Runtime comparison of iterative and optimal mcLMM algorithms for data with no missing values. For varying individuals, contexts were fixed at 10. For varying contexts, individuals were fixed at 10,000. (A) Runtime across varying individuals. (B) Runtime across varying contexts}
             \label{fig:fig2}
         \end{figure}
-
-        Next, we compared the number of significant associations identified in the GTEx dataset. The mash approach utilized gene-SNP effect sizes estimated by the GTEx consortium within each tissue independently. Concordant with our simulations, we observed that the Meta-Tissue approach, utilizing mcLMM for vast speedup, identified more significant eQTLs than mash (Figure \ref{fig:fig3}). These associations allow researchers to better understand the link between genetic variation and complex phenotypes through possible mediation of gene expression. 
+    
+    \subsection{mcLMM enables powerful meta analyses to detect eQTLs}
+        We utilized mcLMM to reduce the computational resource requirements of the Meta-Tissue pipeline, which fits a multiple-context LMM and combines the resulting effect sizes using METASOFT \cite{Sul}. While powerful, the existing approach utilizes EMMA to fit the LMM. For a recent release from the GTEx consortium  \cite{GTEx_Consortium2020-xx}, each pair of genes and single nucleotide polymorphisms (SNPs) required over two hours to run. Across hundreds of thousands of gene-SNP pairs, this method would require years of computational runtime to complete. Utilizing mcLMM, we were able to complete this analysis in 3 days parallelized over each chromosome. 
+        
+        We compared our approach to a method known as mash \cite{Urbut2019}. This approach utilizes effect sizes estimated within each context independently and employs a Bayesian approach to combine their results for meta-analysis. In order to estimate the power of these methods, we performed simulations as described in the methods. In null simulations, we observed well-controlled false positive rates at $\alpha = 0.05$ for mcLMM coupled with METASOFT (Figure \ref{fig:fig3}). In our simulation with true positives, we observed an increased area under the receiver operating characteristic (AUROC) for mcLMM coupled with the random effects (RE2) METASOFT model compared to mash (Figure \ref{fig:fig4}).
         
         %% Figure 3 %%
         \begin{figure}
             \centering
-            \includegraphics[width=0.75\textwidth]{chapter3/figures/Figure_3.pdf}
-            \caption{Venn diagram of significant eQTLs identified by meta-analysis methods in the GTEx dataset. We compared mcLMM using two different models in METASOFT (RE2 and FE) to mash. Note that areas are not proportional to the number of eQTLs in each region. mcLMM+METASOFT (RE2) identified a total of 321,117 significant associations that contained 225,818 eQTLs identified by mash.}
+            \includegraphics[width=\textwidth]{chapter3/figures/Figure_3.pdf}
+            \caption{False positive rates of mcLMM + METASOFT in simulated data with 2-50 tissues. We estimated false positive rates with the p-values from METASOFT FE model on the simulated data with (A) 1000 individuals, (B) 800 individuals, and (C) 500 individuals. Also, we estimated false positive rates with the p-values from METASOFT RE2 model on the simulated data with (D) 1000 individuals, (E) 800 individuals, and (F) 500 individuals.}
             \label{fig:fig3}
         \end{figure}
-        
-    \subsection{mcLMM scales to millions of samples across related phenotypes}
-        As a practical application of the efficiency of mcLMM, we performed a multiple phenotype GWAS in the UK Biobank. A multiple phenotype GWAS associates SNPs with several related phenotypes in order to increase the effective sample size for greater power, under the assumption that the phenotypes are significantly correlated. For our analysis, we combined HDL and LDL cholesterol, Apolipoprotein A and B, and triglyceride levels across 323,266 unrelated caucasian individuals in the UK Biobank. In total, 1,616,330 observations of these related phenotypes were fit as responses in the LMM. 
-        
-        The mcLMM approach completed this analysis over 211,642 SNPs with an additional 14 covariates, parallelized over each chromosome, within a day. Each chromosome was analyzed on a single core machine with 32 GB of memory, with each test taking around 2 seconds to complete. We identified several significant loci, a subset of which replicate previous findings for specific phenotypes included in the model, such as HDL cholesterol \cite{Wojcik} (Figure \ref{fig:fig4}). Existing approaches, namely EMMA and GEMMA, require orders of magnitude more memory to begin this analyses and could not be run on the available computational resources.
         
         %% Figure 4 %%
         \begin{figure}
             \centering
-            \includegraphics[width=\textwidth]{chapter3/figures/Figure_4.png}
-            \caption{Multiple phenotype GWAS results from UK Biobank. Five phenotypes (LDL cholesterol, HDL cholesterol, Apolipoprotein A, Apolipoprotein B, and triglyceride levels) were used as responses in the mcLMM framework. The model was fit with 1,616,330 observations from 323,266 unrelated Caucasian individuals. In total, 211,642 SNPs were tested with an additional 14 covariates. Each test required around 2 seconds to run on a 32GB machine and was parallelized over each chromosome. The -log10 of the p-values are plot on the y-axis and genomic positions on the x-axis. The horizontal dashed line indicates the genome wide significance level at $p=0.05/1e6$. The top hit for 5 different chromosomes is annotated with the gene containing the SNP. These genes have been previously identified as associated with a subset of these phenotypes.}
+            \includegraphics[width=\textwidth]{chapter3/figures/Figure_4.pdf}
+            \caption{AUROC curves of mcLMM+METASOFT and mash in simulated data, assuming the effects of gene-SNP pairs are (A) shared and unstructured, and (B) shared and structured.}
             \label{fig:fig4}
         \end{figure}
-\section{Discussion}
+
+        Next, we compared the number of significant associations identified in the GTEx dataset. The mash approach utilized gene-SNP effect sizes estimated by the GTEx consortium within each tissue independently. Concordant with our simulations, we observed that the Meta-Tissue approach, utilizing mcLMM for vast speedup, identified more significant eQTLs than mash (Figure \ref{fig:fig5}). These associations allow researchers to better understand the link between genetic variation and complex phenotypes through possible mediation of gene expression. 
+        
+        %% Figure 5 %%
+        \begin{figure}
+            \centering
+            \includegraphics[width=0.75\textwidth]{chapter3/figures/Figure_5.pdf}
+            \caption{Venn diagram of significant eQTLs identified by meta-analysis methods in the GTEx dataset. We compared mcLMM using two different models in METASOFT (RE2 and FE) to mash. Note that areas are not proportional to the number of eQTLs in each region. mcLMM+METASOFT (RE2) identified a total of 321,117 significant associations that contained 225,818 eQTLs identified by mash.}
+            \label{fig:fig5}
+        \end{figure}
+        
+    \subsection{mcLMM scales to millions of samples across related phenotypes}
+    
+        %% Figure 6 %%
+        \begin{figure}
+            \centering
+            \includegraphics[width=\textwidth]{chapter3/figures/Figure_6.png}
+            \caption{Multiple phenotype GWAS results from UK Biobank. Five phenotypes (LDL cholesterol, HDL cholesterol, Apolipoprotein A, Apolipoprotein B, and triglyceride levels) were used as responses in the mcLMM framework. The model was fit with 1,616,330 observations from 323,266 unrelated Caucasian individuals. In total, 211,642 SNPs were tested with an additional 14 covariates. Each test required around 2 seconds to run on a 32GB machine and was parallelized over each chromosome. The -log10 of the p-values are plot on the y-axis and genomic positions on the x-axis. The horizontal dashed line indicates the genome wide significance level at $p=0.05/1e6$. The top hit for 5 different chromosomes is annotated with the gene containing the SNP. These genes have been previously identified as associated with a subset of these phenotypes.}
+            \label{fig:fig6}
+        \end{figure}
+        
+        As a practical application of the efficiency of mcLMM, we performed a multiple phenotype GWAS in the UK Biobank. A multiple phenotype GWAS associates SNPs with several related phenotypes in order to increase the effective sample size for greater power, under the assumption that the phenotypes are significantly correlated. For our analysis, we combined HDL and LDL cholesterol, Apolipoprotein A and B, and triglyceride levels across 323,266 unrelated caucasian individuals in the UK Biobank. In total, 1,616,330 observations of these related phenotypes were fit as responses in the LMM. 
+        
+        The mcLMM approach completed this analysis over 211,642 SNPs with an additional 14 covariates, parallelized over each chromosome, within a day. Each chromosome was analyzed on a single core machine with 32 GB of memory, with each test taking around 2 seconds to complete. We identified several significant loci, a subset of which replicate previous findings for specific phenotypes included in the model, such as HDL cholesterol \cite{Wojcik} (Figure \ref{fig:fig6}). Existing approaches, namely EMMA and GEMMA, require orders of magnitude more memory to begin this analyses and could not be run on the available computational resources.
+    
+        
+    \section{Discussion}
 
     We presented mcLMM, an efficient method for fitting LMMs used for multiple context association studies. Our method provides exact results and scales linearly in time and memory with respect to sample size, while existing methods are cubic. This efficiency allows mcLMM to process millions of samples over several contexts within a day on minimal computational resources, as we showed in simulation and in the UK Biobank. The association parameters learned by mcLMM can further be utilized with the METASOFT framework to provide powerful meta-analysis of the associations, as we showed in the GTEx dataset. 
     
