@@ -67,9 +67,10 @@
       \begin {center}
          \MakeUppercase{University of California} \\
          \normalsize Los Angeles \\
-         \vfill
+         %\vfill
+         \vskip 120pt plus0pt minus18pt
          \@titlesize \@title \\
-         \vskip 48pt plus0pt minus18pt
+         \vskip 120pt plus0pt minus18pt
          \normalsize \normalfont
          A \@thesisname\ submitted in partial satisfaction \\
          of the requirements for the degree \\
