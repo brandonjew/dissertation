@@ -1,5 +1,113 @@
 \chapter{Selection contributes to skewed X chromosome inactivation across human tissues}
+
 \section{Background}
+X chromosome inactivation (XCI) occurs in blastocysts during embryonic development. Under no external pressures, the process is assumed to be random and is established in about a dozen cells and all daughter cells will inherit the XCI status of these cells \cite{Takagi1975-es}. Skew in XCI has been widely observed in female mammals and is accepted to be common across individuals \cite{Shvetsova2019-re}. Selective pressures have been implicated in contributing to XCI skew, especially in the context of diseases such as cancer \cite{Brown1999-dc,Migeon1998-gc}. In addition, XCI skew was found to be heritable and correlated with age based on a twin study \cite{Zito2019-hu}. Recent work argued that observed XCI skew in the general female population is the result of expected randomness in early development \cite{Shvetsova2019-re}. 
+
+Here, we show that XCI skew in a general female population in the GTEx dataset \cite{GTEx_Consortium2020-xx} is associated with genetic scores related to deleteriousness and proliferative potential. We hypothesize that differences in the fitness of maternal and paternal X chromosomes may contribute to skewed XCI across tissues into adulthood (Figure \ref{fig:fig4.1}a).  Furthermore, we perform a scan of common variants across the X chromosome to identify specific loci associated with overall XCI skew in these individuals.
+
+\input{chapter4/Figures/Figure_1}
+
 \section{Methods}
+\subsection{Transcriptomic and genetic data}
+
+The following data were processed and made available by the GTEx consortium \cite{GTEx_Consortium2020-xx}. GENCODE v26 and the GRCh38 human reference genome was used to process both WGS and RNA-seq data. RNA-seq data was aligned using STAR with WASP filtering. Allele-specific read counts at heterozygous sites were quantified with GATK ASEReadCounter. Genetic variants were called from whole genome sequencing data and phased with read-aware SHAPEIT2. All analyses were restricted to caucasian samples. 
+
+\subsection{Quantifying XCI skew}
+
+Allele-specific read counts were matched to haplotypes from the phased WGS data. Only heterozygous sites within fully inactivated genes reported by Carrel and Willard \cite{Carrel2005-zm} and Cotton et al \cite{Cotton2013-jl} were considered. Furthermore, we restricted to genes where no females were observed to escape inactivation in Cotten et al. LiftOver (https://genome.ucsc.edu/cgi-bin/hgLiftOver) was used to convert these reported gene windows from GRCh37 to GRCh38 positions. Moreover, we only considered variants that had at least 10 overlapping reads. XCI skew was calculated at each heterozygous site in the gene windows as the number of reads coming from haplotype 1 divided by the total number of reads at the site. The final XCI skew measurement for each sample was the median of these per-site observations. In addition, since haplotypes are not readily distinguishable as maternal or paternal, we also calculated the absolute XCI skew as the absolute deviation of this value from 0.5. 
+
+We also calculated skew in the same manner in autosomes. Specifically, if $m$ heterozygous sites were used to calculate XCI in a sample, we randomly selected $m$ heterozygous sites with at least 10 overlapping RNA-seq reads on the q-arm of each non-acrocentric autosome. We used these sites to calculate skew for each autosome. 
+
+\subsection{Genetic score association}
+
+Four scores were defined to measure genetic burden of X chromosome haplotypes in females. First, we considered the difference in average CADD score \cite{Rentzsch2019-pk} between the two haplotypes. A higher CADD score corresponds to an increased likelihood of deleteriousness. CADD Phred scores were retrieved using VEP \cite{McLaren2016-jd}. The CADD score associated with each alternate allele on each haplotype was averaged. The remaining scores were proportions of different types of mutations carried by a haplotype. We considered the proportion of alternate alleles, missense mutations, and synonymous mutations carried by a haplotype. This proportion is calculated as the count of the variant-type on one haplotype divided by the total number of these variants found across both haplotypes. Annotations indicating the coding consequence of variants were obtained using VEP.
+
+We associated these scores with XCI skew using a linear mixed model. Specifically, we used the lmer function from the lmerTest package \cite{Kuznetsova2017-jp} to fit the following model across all tissues:
+\begin{equation}
+\text{H1 XCI Skew} \sim \text{H1 Burden + Age + (1\textbar Individual) + (1\textbar Tissue)}
+\end{equation}
+where Individual corresponds to the individual a tissue was sampled from and the (1\textbar Grouping) notation indicates a random intercept for the specified grouping. The significance of these associations were determined using a one-sided t-test, under the assumption that increased burden will decrease skewing towards a haplotype.
+
+Blood-related polygenic scores were retrieved from PGS Catalog \cite{Lambert2021-iu}. We used scores for the following cell counts: platelet (PGS000186), red blood cell (PGS000187), basophil (PGS000163), neutrophil (PGS000182), eosinophil (PGS000165), monocyte (PGS000177), and lymphocyte (PGS000172) \cite{Vuckovic2020-gf}. GRCh38 positions of the variants used for these scores were retrieved from SNP Nexus \cite{Oscanoa2020-ac}. We calculated each polygenic score for both haplotypes and modeled the difference in scores as follows:
+\begin{equation}
+\text{H1 XCI Skew} \sim \text{(H1 PGS - H2 PGS) + Age + (1\textbar Individual) + (1\textbar Tissue)}
+\end{equation}
+The significance of these associations were determined by using a one-sided t-test, under the assumption that increased proliferative potential will increase skewing towards a haplotype. 
+
+Each of these tests were also performed for autosomes as controls with the following model:
+
+\begin{align}
+\begin{split}
+\text{H1 XCI Skew} \sim & \text{ (H1 PGS - H2 PGS) + Age +} \\
+                        & \text{ (1\textbar Individual) + (1\textbar Tissue) + (1\textbar Chromosome)}
+\end{split}
+\end{align}
+where “Chromosome” refers to the autosome used to calculate skew. A Bonferroni-corrected significance threshold of 0.05/8 was used for the 4 burden scores and 0.05/14 was used for the 7 blood-related polygenic scores. 
+
+\subsection{Identifying significant XCI loci}
+
+The phased X chromosome variants were filtered with PLINK 2 \cite{PLINK2}. SNPs were extracted with a minor allele frequency threshold of 0.01 and Hardy-Weinberg equilibrium p-value threshold of 1e-6. LD pruning was performed with a window size of 100 kilobases, step size of 5 variants, and $r^2$ threshold of 0.5. 
+
+These filtered variants were marginally tested in a linear mixed model to measure association with absolute XCI skew. We fit the following linear mixed model:
+\begin{equation}
+\text{Absolute XCI Skew} \sim \text{Heterozygous + Age + (1\textbar Individual) + (1\textbar Tissue)}
+\end{equation}
+where Heterozygous is 1 if the sample is heterozygous for the variant and 0 if the sample is homozygous. We modeled absolute skewing under the assumption that heterozygosity will lead to differences in fitness and consequently increased overall skewing. Given this assumption, we determined the significance of these associations using a one-sided t-test under this hypothesis. The resulting p-values were converted to q-values \cite{Storey2003-kx} and considered significant using a threshold corresponding to a 0.05 local false discovery rate.
+
+At the two significant loci, this linear mixed model was also used to determine the significance of the difference in skewing between homozygous samples and groups defined by the phasing of the variant in heterozygous individuals. For these associations, we fit the following model separately for individuals with the variant on H1 and on H2:
+\begin{equation}
+\text{H1 XCI Skew} \sim \text{Heterozygous + Age + (1\textbar Individual) + (1\textbar Tissue)}
+\end{equation}
+Since we do not assume the direction of individual variant effects on XCI skewing, we performed a two-sided t-test to determine significance of these associations. 
+
+\subsection{Associating XCI-linked genetics in males}
+
+To address the possibility that the burden and proliferation scores are capturing regulatory effects, such as downregulation of a haplotype rather than increased inactivation, we calculated these scores within males. Like in the female samples, we utilized variants outside of the fully inactivated genes used to calculate skew. Given that males have one X chromosome, we associated these scores with the expression of each gene on the X chromosome. We fit a model similar to those used for identifying expression quantitative trait loci. Specifically, we performed a linear regression within each tissue independently, correcting for the top 5 genetic principal components, PCR, and platform. We also corrected for PEER factors, \cite{Stegle2012-uf} using 15 for sample sizes less than 150 and adding an additional 15 factors for each 100 samples. The resulting p-values from the linear regression were converted to q-values \cite{Storey2003-kx} and considered significant at a local false discovery rate threshold of 0.05. 
+
 \section{Results}
+
+\subsection{Estimating XCI skew from RNA-seq data}
+
+We analyzed data generated by the GTEx consortium \cite{GTEx_Consortium2020-xx}, which included RNA-seq and phased whole genome sequencing data measured across 243 caucasian female samples and 472 caucasian male samples. We measured XCI skew in females as the difference in expression measured from each X chromosome in an RNA-seq experiment. Since XCI does not completely silence the entire X chromosome, we restricted our analysis to genes that have been previously observed to be fully inactivated \cite{Carrel2005-zm,Cotton2013-jl,Tukiainen2017-xm}. Read counts at heterozygous sites in these regions were assigned to haplotypes determined with phased whole genome sequencing data. The skew in RNA-seq reads was calculated at each site as the number of reads coming from one haplotype divided by the total number of reads. XCI skew for a sample was calculated as the median of these values. A median of 45 heterozygous sites were used for this calculation across the samples (Figure \ref{fig:supp_fig4.1}). We observed variability in XCI skew across tissues, with EBV-transformed lymphocytes exhibiting nearly complete skew in many samples (Figure \ref{fig:fig4.1}b).  Given this extreme skewing likely due to culture conditions, we removed these samples from downstream analyses. Furthermore, we observed correlation of XCI skew across the different tissues (Figure \ref{fig:supp_fig4.2}).
+
+\input{chapter4/Figures/Supplementary_Figure_1}
+\input{chapter4/Figures/Supplementary_Figure_2}
+
+Inferring XCI skew from expression data can be confounded by both technological and biological factors that may lead to similar associations with our genetic burden scores. Reference bias, the tendency for RNA-seq reads with reference alleles to better map to a reference genome than non-reference alleles \cite{Stevenson2013-cg}, may be a significant confounding variable. This bias is especially relevant to the genetic burden defined by the proportion of alternate alleles carried by a haplotype. For example, an alternate allele may have lower observed expression than the reference allele simply due to reference bias rather than XCI skew. To account for this source of bias, we utilized RNA-seq reads that were aligned with a filter utilizing WASP, a method that accounts for reference bias by mapping reads with swapped genotypes \cite{Van_de_Geijn2015-oy}.
+Regulatory effects of genetic variation may also lead to imbalances in expression measured from each X chromosome that may be erroneously attributed to skew in X chromosome inactivation. To address this source of confounding, we performed similar experiments using the non-acrocentric autosomes (chromosomes with arms of roughly equal size) of the female samples. In short, we calculated skewing at heterozygous sites that were captured by RNA-seq reads on the q or long arm of the autosome. We observed no significant level of average ‘skewing’ in these chromosomes (Figure \ref{fig:supp_fig4.3}). 
+
+\input{chapter4/Figures/Supplementary_Figure_3}
+
+We also performed an analysis of the male GTEx samples to test the possibility of regulatory effects rather than skewing in inactivation. Since males only have one X chromosome, we associated genetic features with expression of each gene on the X chromosome. If our genetic scores are associated with downregulation of expression rather than cause XCI skew, we anticipated this experiment to show a significant negative association with the expression of X chromosome genes across males.
+
+\subsection{Genetic burden is associated with XCI skew}
+
+We defined the following genetic burden scores for this analysis: the proportion of missense and synonymous mutations carried by each haplotype, and the difference in average CADD score \cite{Rentzsch2019-pk} between the two haplotypes. CADD scores provide a quantitative measure of the predicted deleteriousness of a variant. Only genetic variation outside of the genes that were used to calculate XCI skew were considered in these scores to avoid capturing cis regulatory effects. To associate these burden measures with XCI skew, we fit a linear mixed model with random intercepts accounting for the individual of origin for each tissue sample and tissue type. In this model, the difference in CADD score between haplotypes had a significant negative effect on XCI skew (coefficient = -0.1289 ± 0.0451, p = 0.0023) (Figure \ref{fig:fig4.2}a). This result suggests that a higher genetic burden in terms of deleterious variation is associated with observing lower expression from this haplotype in bulk tissue. We found that this association was not significant across the non-acrocentric autosomes (Table \ref{table:table4.1}). In addition, these burden scores were not associated with the regulation of gene expression on the X chromosome in male samples. 
+
+\input{chapter4/Figures/Figure_2}
+\input{chapter4/Tables/Table_1}
+
+\subsection{Variation in proliferation-related polygenic scores is associated with XCI Skew}
+
+We utilized publicly available polygenic risk score weights to calculate the proliferative potential of each haplotype in the female samples. Specifically, we used various blood cell counts as phenotypes under the assumption that these scores are concordant with hematopoiesis and proliferative cell activity \cite{Loh2020-mb}. We found that the haplotype with the higher red blood cell polygenic score (coefficient = 0.1116 ± 0.0462, p = 0.0082) and basophil polygenic score (coefficient = 0.1355 ± 0.0460, p = 0.0018) tends to be overrepresented in terms of XCI skewing (Figure \ref{fig:fig4.2}b). These results imply that higher proliferative-related polygenic scores are associated with an enrichment for cells with this haplotype active across tissues. We also ran similar autosomal and male analyses to test the alternative hypothesis that these polygenic scores may be capturing gene regulatory effects. We found no significant associations between these scores in the female non-acrocentric autosomes (Supplementary Table \ref{table:table4.2}). In the analysis of male samples, the basophil polygenic score was significantly associated with increased expression of AFF2 in 4 tissues (Supplementary Table \ref{table:table4.4}). However, this gene is considered a variable XCI escape gene and therefore was not used to calculate XCI skew in the female samples.
+
+\input{chapter4/Tables/Table_2}
+\input{chapter4/Tables/Table_4}
+
+\subsection{Variation in specific loci is significantly associated with XCI skew}
+
+While the previous analyses suggest that genetic burden and proliferative potential is associated with skewed XCI, they do not provide specific variants or loci that contribute to this association. We performed an association study on the X chromosome to address this question. Specifically, we associated variants on the X chromosome with the absolute XCI skew measurements (Figure \ref{fig:fig4.3}a). We found 2 variants that were significant at a FDR of 0.05 (Table \ref{table:table4.3}). The first variant (rs141680486) is an intronic SNP found within the DMD gene, also known as dystrophin, and was significantly associated with increased absolute XCI skew (coefficient = 0.0203 ± 0.0041, p=7.978e-07). We observed large absolute skew in samples that were heterozygous for this variant compared to those who were homozygous (Figure \ref{fig:fig4.3}b). Moreover, we found that the haplotype with the minor allele tends to be more inactivated than the other haplotype in heterozygous samples (Figure \ref{fig:fig4.3}c). The second variant (rs73227260) is an intronic SNP in LOC101928359, a non-coding transcript,  and was also associated with increased absolute XCI skew (coefficient = 0.0199 ± 0.0041, p = 1.265e-06). We observed a high level of skewing in heterozygous individuals with no clear difference in directional skewing depending on the haplotype carrying the minor allele (Figure \ref{fig:supp_fig4.4}).
+
+Since eQTLs may also cause skewing in expression within cells, we tested the association between these variants and gene expression on the X chromosome in males. We found that the DMD variant (rs141680486) is a significant eQTL for TMEM187 expression in EBV-transformed lymphocytes (coefficient = -0.3917 ± 0.0696, p=8.734e-07). However, we note that these lymphocyte samples were excluded from our female analyses due to extreme XCI skewing. 
+
+\input{chapter4/Figures/Figure_3}
+\input{chapter4/Figures/Supplementary_Figure_4}
+\input{chapter4/Tables/Table_3}
+
 \section{Discussion}
+
+These analyses support the hypothesis that differences in genetic variation on the maternal and paternal X chromosomes influences skewed inactivation through selection \cite{Brown1999-dc,Migeon1998-gc}. Specifically, these results demonstrate a significant association between higher CADD scores of a haplotype and skewing away from this haplotype. Furthermore, we showed that higher polygenic scores related to proliferation, specifically red blood cell and basophil counts, tend to be associated with skewing towards the haplotype. These results imply that skewing in X inactivation may arise from higher proliferation or reduced deleteriousness of cells with one haplotype activated compared to the other subpopulation. We also identified common variation within specific loci on the X chromosome, such as the dystrophin gene, associated with XCI skew that may also contribute to these differences in proliferation or deleteriousness.
+
+Several confounding factors could influence the results of this study. First, haplotype estimation by phasing algorithms may be inaccurate. Phasing errors would reduce the power of these analyses, since genetic scores may include variants from both haplotypes. In our analyses, we observed phase switches in EBV-transformed lymphocyte samples with extreme XCI skewing that suggests some phasing errors had occurred. Second, mapping biases may cause artificially higher observed expression of reference alleles compared to alternate alleles. This issue is addressed by the WASP filtering \cite{Van_de_Geijn2015-oy} used in the alignment of RNA-seq reads. Third, differences in eQTL effects across haplotypes may lead to skewed expression in RNA-seq experiments that may be incorrectly attributed to skewed XCI. We consider this source of confounding by taking the median of expression skew measured across heterozygous sites in 117 fully inactivated genes and by testing whether our features of interest are significant in the non-acrocentric autosomes or as eQTLs in the male samples. These issues could be circumvented with sufficiently large single-cell RNA-seq datasets. Haplotype phasing, as well as inactivation status, could be estimated within each cell individually and XCI skew could be calculated by simply counting cells. Furthermore, these data would allow cell-type-specific analysis of the relationship between genetics and skewed XCI.  
+
+The influence of genetics on XCI skewing across the general female population highlights interesting mechanisms that should be further explored. For example, the effect of a specific variant on a complex phenotype may be dampened or amplified depending on the haplotype that carries it in females. For example, if an individual homozygous for a disease-related variant carries it on a haplotype with reduced proliferation, its effect may be dampened since a majority of cells will be expressing the wild-type variant. Epistatic effects and reduced penetrance due to allele-specific expression has been previously reported in the context of allele-specific gene regulation \cite{Castel2018-wo,Lappalainen2011-mu}. Here, these effects would arise from skewed X inactivation across a tissue rather than skewed expression within individual cells. This effect on penetrance has been described in the context of X-linked disorders, where skewed inactivation blurs the distinction of dominant and recessive traits across males and females \cite{Dobyns2004-ac}. The results shown here imply that selective pressures on genetic differences across the female population can influence skewing and consequently influence the penetrance of variation across the X chromosome.
